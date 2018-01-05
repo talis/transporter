@@ -21,7 +21,7 @@ var (
 	_ client.Reader = &Reader{}
 
 	// DefaultCollectionFilter is an empty map of empty maps
-	DefaultCollectionFilter = map[string]CollectionFilter{}
+	DefaultCollectionFilter = map[string][]CollectionFilter{}
 )
 
 // CollectionFilter is just a typed map of strings of map[string]interface{}
@@ -30,11 +30,11 @@ type CollectionFilter map[string]interface{}
 // Reader implements the behavior defined by client.Reader for interfacing with MongoDB.
 type Reader struct {
 	tail              bool
-	collectionFilters map[string]CollectionFilter
+	collectionFilters map[string][]CollectionFilter
 	oplogTimeout      time.Duration
 }
 
-func newReader(tail bool, filters map[string]CollectionFilter) client.Reader {
+func newReader(tail bool, filters map[string][]CollectionFilter) client.Reader {
 	return &Reader{tail, filters, 5 * time.Second}
 }
 
@@ -182,9 +182,15 @@ func (r *Reader) iterate(lastID interface{}, s *mgo.Session, c string) <-chan me
 
 func (r *Reader) catQuery(c string, lastID interface{}, mgoSession *mgo.Session) *mgo.Query {
 	query := bson.M{}
-	if f, ok := r.collectionFilters[c]; ok {
-		query = bson.M(f)
+
+	if a, ok := r.collectionFilters[c]; ok {
+		or := make([]bson.M,len(a))
+		for i, element := range a {
+			or[i] = bson.M(element)
+		}
+		query = bson.M{"$or": or}
 	}
+
 	if lastID != nil {
 		query["_id"] = bson.M{"$gt": lastID}
 	}
@@ -313,8 +319,12 @@ func (r *Reader) getOriginalDoc(doc bson.M, c string, s *mgo.Session) (result bs
 	}
 
 	query := bson.M{}
-	if f, ok := r.collectionFilters[c]; ok {
-		query = bson.M(f)
+	if a, ok := r.collectionFilters[c]; ok {
+		or := make([]bson.M,len(a))
+		for i, element := range a {
+			or[i] = bson.M(element)
+		}
+		query = bson.M{"$or": or}
 	}
 	query["_id"] = id
 
