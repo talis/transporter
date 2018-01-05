@@ -68,7 +68,7 @@ func (m *mongoDB) Client() (client.Client, error) {
 }
 
 func (m *mongoDB) Reader() (client.Reader, error) {
-	var f map[string]CollectionFilter
+	var f map[string][]CollectionFilter
 	if m.CollectionFilters != "" {
 		if jerr := json.Unmarshal([]byte(m.CollectionFilters), &f); jerr != nil {
 			return nil, ErrCollectionFilter
